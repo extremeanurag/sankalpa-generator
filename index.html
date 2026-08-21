@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#6b3fa0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Sankalpa Generator</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{box-sizing:border-box}
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#211b27;background:#f6f1fa}
+body{margin:0;background:linear-gradient(#eee6f6,#f8f6fb);min-height:100vh}
+main{max-width:720px;margin:auto;padding:calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 30px)}
+h1{font-size:29px;margin:0}.subtitle{margin:4px 0 20px;color:#716879}
+.card{background:#fff;border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 5px 24px #0000000d}
+label{display:block;font-weight:700;margin:12px 0 7px}
+select,input,button{width:100%;font:inherit;border-radius:13px;padding:13px;border:1px solid #ddd}
+select,input{background:#fff}
+button{border:0;background:#6b3fa0;color:#fff;font-weight:700;margin-top:12px}
+button.secondary{background:#eeeaf1;color:#312a36}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.info{font-size:14px;color:#69616f;margin-top:10px;line-height:1.5}
+.status{margin-top:10px;font-size:14px;color:#62596a}.error{color:#a12828}
+.panchang{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.pitem{background:#f8f5fa;border-radius:12px;padding:10px}
+.pitem b{display:block;font-size:12px;color:#776e7e;margin-bottom:3px}
+#output{font-family:"Noto Sans Devanagari","Nirmala UI",serif;font-size:21px;line-height:1.95;white-space:pre-wrap}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+small{color:#766d7b}
+footer{font-size:12px;color:#807786;text-align:center;margin-top:18px}
+</style>
+</head>
+<body>
+<main>
+<h1>संस्कृत सङ्कल्प</h1>
+<div class="subtitle">Sankalpa Generator · Pūrṇimānta · India</div>
+
+<section class="card">
+<label for="deity">Deity</label>
+<select id="deity">
+<option value="tara">Tara</option>
+<option value="bhairava">Bhairava</option>
+<option value="kalabhairava">Kala Bhairava</option>
+<option value="durga">Durga</option>
+<option value="kali">Kali</option>
+<option value="skanda">Skanda</option>
+<option value="ganesha">Ganesha</option>
+<option value="shiva">Shiva</option>
+<option value="vishnu">Vishnu</option>
+<option value="hanuman">Hanuman</option>
+</select>
+
+<label for="ritual">Ritual</label>
+<select id="ritual">
+<option value="puja">Puja</option>
+<option value="nimbu_bali">Nimbu Bali</option>
+<option value="homa">Homa</option>
+<option value="japa">Japa</option>
+<option value="anusthana">Anushthana</option>
+</select>
+
+<label for="place">Place</label>
+<input id="place" value="Kadugodi, Bengaluru" autocomplete="off">
+<div class="info">
+Default: <b>Kadugodi, Bengaluru</b> → includes <b>मम गृहे</b>.<br>
+If you change the place → <b>मम गृहे</b> is omitted.
+</div>
+
+<button id="generate">Generate Sankalpa</button>
+<div id="status" class="status"></div>
+</section>
+
+<section class="card">
+<div id="panchangBox" class="panchang"></div>
+</section>
+
+<section class="card">
+<div id="output">Your Sankalpa will appear here.</div>
+<div class="actions">
+<button class="secondary" id="copy">Copy</button>
+<button class="secondary" id="share">Share</button>
+</div>
+</section>
+
+<footer>
+Panchāṅga is calculated locally in the browser. No Python app is required.
+</footer>
+</main>
+
+<script type="module">
+import {
+  getPanchangam,
+  Observer,
+  tithiNames,
+  nakshatraNames,
+  masaNames
+} from "https://esm.sh/@ishubhamx/panchangam-js@3.0.0";
+
+const DEITY={
+ tara:["श्रीतारा","श्रीतारादेव्याः"],
+ bhairava:["श्रीभैरव","श्रीभगवतो भैरवस्य"],
+ kalabhairava:["श्रीकालभैरव","श्रीभगवतो कालभैरवस्य"],
+ durga:["श्रीदुर्गा","श्रीदुर्गादेव्याः"],
+ kali:["श्रीकाली","श्रीकालीदेव्याः"],
+ skanda:["श्रीस्कन्द","श्रीस्कन्दस्य"],
+ ganesha:["श्रीगणेश","श्रीगणेशस्य"],
+ shiva:["श्रीशिव","श्रीशिवस्य"],
+ vishnu:["श्रीविष्णु","श्रीविष्णोः"],
+ hanuman:["श्रीहनुमान्","श्रीहनुमतः"]
+};
+
+const RITUAL={
+ puja:{
+  tara:"श्रीतारापूजनं",bhairava:"श्रीभैरवपूजनं",kalabhairava:"श्रीकालभैरवपूजनं",
+  durga:"श्रीदुर्गापूजनं",kali:"श्रीकालीपूजनं",skanda:"श्रीस्कन्दपूजनं",
+  ganesha:"श्रीगणेशपूजनं",shiva:"श्रीशिवपूजनं",vishnu:"श्रीविष्णुपूजनं",hanuman:"श्रीहनुमत्पूजनं"
+ },
+ nimbu_bali:Object.fromEntries(Object.keys(DEITY).map(k=>[k,"निम्बफलबलिप्रदानं"])),
+ homa:{
+  tara:"श्रीताराहोमं",bhairava:"श्रीभैरवहोमं",kalabhairava:"श्रीकालभैरवहोमं",
+  durga:"श्रीदुर्गाहोमं",kali:"श्रीकालीहोमं",skanda:"श्रीस्कन्दहोमं",
+  ganesha:"श्रीगणेशहोमं",shiva:"श्रीशिवहोमं",vishnu:"श्रीविष्णुहोमं",hanuman:"श्रीहनुमद्धोमं"
+ },
+ japa:{
+  tara:"श्रीतारामन्त्रजपं",bhairava:"श्रीभैरवमन्त्रजपं",kalabhairava:"श्रीकालभैरवमन्त्रजपं",
+  durga:"श्रीदुर्गामन्त्रजपं",kali:"श्रीकालीमन्त्रजपं",skanda:"श्रीस्कन्दमन्त्रजपं",
+  ganesha:"श्रीगणेशमन्त्रजपं",shiva:"श्रीशिवमन्त्रजपं",vishnu:"श्रीविष्णुमन्त्रजपं",hanuman:"श्रीहनुमन्मन्त्रजपं"
+ },
+ anusthana:{
+  tara:"श्रीतारामन्त्रानुष्ठानं",bhairava:"श्रीभैरवमन्त्रानुष्ठानं",kalabhairava:"श्रीकालभैरवमन्त्रानुष्ठानं",
+  durga:"श्रीदुर्गामन्त्रानुष्ठानं",kali:"श्रीकालीमन्त्रानुष्ठानं",skanda:"श्रीस्कन्दमन्त्रानुष्ठानं",
+  ganesha:"श्रीगणेशमन्त्रानुष्ठानं",shiva:"श्रीशिवमन्त्रानुष्ठानं",vishnu:"श्रीविष्णुमन्त्रानुष्ठानं",hanuman:"श्रीहनुमन्मन्त्रानुष्ठानं"
+ }
+};
+
+const WEEK=["रविवासरे","सोमवासरे","मङ्गलवासरे","बुधवासरे","गुरुवासरे","शुक्रवासरे","शनिवासरे"];
+const TITHI=["","प्रतिपदातिथौ","द्वितीयातिथौ","तृतीयातिथौ","चतुर्थीतिथौ","पञ्चमीतिथौ","षष्ठीतिथौ","सप्तमीतिथौ","अष्टमीतिथौ","नवमीतिथौ","दशमीतिथौ","एकादशीतिथौ","द्वादशीतिथौ","त्रयोदशीतिथौ","चतुर्दशीतिथौ","पूर्णिमातिथौ","प्रतिपदातिथौ","द्वितीयातिथौ","तृतीयातिथौ","चतुर्थीतिथौ","पञ्चमीतिथौ","षष्ठीतिथौ","सप्तमीतिथौ","अष्टमीतिथौ","नवमीतिथौ","दशमीतिथौ","एकादशीतिथौ","द्वादशीतिथौ","त्रयोदशीतिथौ","चतुर्दशीतिथौ","अमावास्यातिथौ"];
+const NAK=[
+"अश्विनीनक्षत्रे","भरणीनक्षत्रे","कृत्तिकानक्षत्रे","रोहिणीनक्षत्रे","मृगशीर्षनक्षत्रे","आर्द्रानक्षत्रे",
+"पुनर्वसुनक्षत्रे","पुष्यनक्षत्रे","आश्लेषानक्षत्रे","मघानक्षत्रे","पूर्वफाल्गुनीनक्षत्रे","उत्तरफाल्गुनीनक्षत्रे",
+"हस्तनक्षत्रे","चित्रानक्षत्रे","स्वातीनक्षत्रे","विशाखानक्षत्रे","अनुराधानक्षत्रे","ज्येष्ठानक्षत्रे",
+"मूलनक्षत्रे","पूर्वाषाढानक्षत्रे","उत्तराषाढानक्षत्रे","श्रवणनक्षत्रे","धनिष्ठानक्षत्रे","शतभिषक्नक्षत्रे",
+"पूर्वभाद्रपदनक्षत्रे","उत्तरभाद्रपदनक्षत्रे","रेवतीनक्षत्रे"
+];
+
+const MASA={
+ Chaitra:"चैत्रमासे",Vaishakha:"वैशाखमासे",Jyeshtha:"ज्येष्ठमासे",Ashadha:"आषाढमासे",
+ Shravana:"श्रावणमासे",Bhadrapada:"भाद्रपदमासे",Ashwin:"आश्विनमासे",Kartika:"कार्तिकमासे",
+ Margashirsha:"मार्गशीर्षमासे",Pausha:"पौषमासे",Magha:"माघमासे",Phalguna:"फाल्गुनमासे"
+};
+
+const PLACES={
+ "kadugodi, bengaluru":{lat:12.9891,lon:77.7499,elev:900,text:"कर्णाटक-राज्ये बेङ्गलूरुनगरे कडुगोडी-स्थिते"},
+ "tarapith, west bengal":{lat:24.1116,lon:87.8110,elev:50,text:"पश्चिमबङ्ग-राज्ये तारापीठ-क्षेत्रे"},
+ "tarapith":{lat:24.1116,lon:87.8110,elev:50,text:"पश्चिमबङ्ग-राज्ये तारापीठ-क्षेत्रे"},
+ "kolkata, west bengal":{lat:22.5726,lon:88.3639,elev:9,text:"पश्चिमबङ्ग-राज्ये कोलकातानगरे"},
+ "puri, odisha":{lat:19.8135,lon:85.8312,elev:10,text:"ओडिशा-राज्ये पुरीक्षेत्रे"},
+ "jajpur, odisha":{lat:20.8497,lon:86.3376,elev:10,text:"ओडिशा-राज्ये याजपुरक्षेत्रे"},
+ "ujjain, madhya pradesh":{lat:23.1765,lon:75.7885,elev:490,text:"मध्यप्रदेश-राज्ये उज्जयिन्यां"},
+ "varanasi, uttar pradesh":{lat:25.3176,lon:82.9739,elev:80,text:"उत्तरप्रदेश-राज्ये वाराणस्यां"}
+};
+
+function key(s){return s.trim().toLowerCase().replace(/\s+/g," ")}
+function placeInfo(place){
+ const k=key(place);
+ if(PLACES[k]) return {...PLACES[k], explicit:k!=="kadugodi, bengaluru"};
+ // For arbitrary locations, use browser geolocation as the coordinate source.
+ // Sanskrit place text remains the supplied place to avoid inventing a translation.
+ return {lat:null,lon:null,elev:0,text:place+"-स्थिते",explicit:true,custom:true};
+}
+function dateDDMMYYYY(d){
+ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear();
+}
+function localDateForIST(){
+ const s=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+ const [y,m,d]=s.split("-").map(Number);
+ return new Date(y,m-1,d,12,0,0);
+}
+function fmtTime(d){
+ if(!d) return "";
+ return new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true}).format(d);
+}
+function currentAtSunrise(p){
+ return p;
+}
+function tithiText(n){
+ return TITHI[n] || ("तिथौ ("+n+")");
+}
+function nakText(n){
+ return NAK[n] || ("नक्षत्रे ("+n+")");
+}
+function masaText(m){
+ const n=m?.name || m;
+ return MASA[n] || (String(n).includes("Adhika")?String(n)+"मासे":String(n)+"मासे");
+}
+function pakshaText(p){return p==="Shukla"?"शुक्लपक्षे":"कृष्णपक्षे";}
+
+async function getCoordinates(info, place){
+ if(info.lat!==null) return info;
+ if(!navigator.geolocation) throw new Error("This place is not in the built-in list. Please use a built-in place or allow location access.");
+ const pos=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:10000}));
+ return {...info,lat:pos.coords.latitude,lon:pos.coords.longitude,elev:pos.coords.altitude||0};
+}
+
+function buildPanchang(info){
+ const date=localDateForIST();
+ const observer=new Observer(info.lat,info.lon,info.elev);
+ return getPanchangam(date,observer,{timezoneOffset:330,calendarType:"purnimanta"});
+}
+
+function buildSankalpa(p,place){
+ const now=localDateForIST();
+ const deity=document.getElementById("deity").value;
+ const ritual=document.getElementById("ritual").value;
+ const dg=DEITY[deity][1];
+ const process=RITUAL[ritual][deity];
+
+ let loc=placeInfo(place).text;
+ if(key(place)==="kadugodi, bengaluru") loc+=" मम गृहे";
+
+ const masa=masaText(p.masa);
+ const paksha=pakshaText(p.paksha);
+ const tithi=tithiText(p.tithi);
+ const nak=nakText(p.nakshatra);
+
+ return `ममोपात्तसमस्तदुरितक्षयद्वारा श्रीपरमेश्वरप्रीत्यर्थं, अद्य ग्रेगोरियन-पञ्चाङ्गे ${dateDDMMYYYY(now)} दिनाङ्के, ${WEEK[now.getDay()]}, ${masa} ${paksha} ${tithi} ${nak}, गर्गगोत्रसम्भवः अहम् अनुरागमोहन्ती, ${loc}, ${dg} अनुग्रह-प्रीत्यर्थं ${process} करिष्ये।
+
+ॐ तत्सत् ॥`;
+}
+
+function showPanchang(p){
+ const box=document.getElementById("panchangBox");
+ const items=[
+  ["Calendar","Pūrṇimānta"],
+  ["Māsa",masaText(p.masa)],
+  ["Paksha",p.paksha==="Shukla"?"Shukla":"Krishna"],
+  ["Tithi",tithiNames[p.tithi]||p.tithi],
+  ["Tithi ends",fmtTime(p.tithiEndTime)],
+  ["Nakshatra",nakshatraNames[p.nakshatra]||p.nakshatra],
+  ["Nakshatra ends",fmtTime(p.nakshatraEndTime)],
+  ["Sunrise",fmtTime(p.sunrise)],
+  ["Sunset",fmtTime(p.sunset)]
+ ];
+ box.innerHTML=items.map(([a,b])=>`<div class="pitem"><b>${a}</b>${b||"—"}</div>`).join("");
+}
+
+async function generate(){
+ const status=document.getElementById("status");
+ const place=document.getElementById("place").value.trim()||"Kadugodi, Bengaluru";
+ status.className="status";
+ status.textContent="Calculating Panchāṅga locally…";
+ try{
+   const info=await getCoordinates(placeInfo(place),place);
+   const p=buildPanchang(info);
+   showPanchang(p);
+   document.getElementById("output").textContent=buildSankalpa(p,place);
+   status.textContent="Generated successfully.";
+ }catch(e){
+   status.className="status error";
+   status.textContent="Could not calculate Panchāṅga: "+(e.message||e);
+ }
+}
+
+document.getElementById("generate").onclick=generate;
+document.getElementById("copy").onclick=async()=>{
+ const text=document.getElementById("output").textContent;
+ try{await navigator.clipboard.writeText(text);document.getElementById("status").textContent="Copied to clipboard."}
+ catch(e){document.getElementById("status").textContent="Copy failed; select the text manually."}
+};
+document.getElementById("share").onclick=async()=>{
+ const text=document.getElementById("output").textContent;
+ if(navigator.share) await navigator.share({title:"Sanskrit Sankalpa",text});
+ else {await navigator.clipboard.writeText(text);document.getElementById("status").textContent="Copied; sharing is unavailable in this browser."}
+};
+
+generate();
+</script>
+</body>
+</html>

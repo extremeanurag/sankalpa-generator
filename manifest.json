@@ -1,0 +1,9 @@
+{
+  "name": "Sanskrit Sankalpa Generator",
+  "short_name": "Sankalpa",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f1fa",
+  "theme_color": "#6b3fa0",
+  "description": "Purnimanta Sanskrit Sankalpa generator"
+}
