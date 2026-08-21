@@ -50,3 +50,8 @@ You can type any city/place, for example:
 The app geocodes the typed place using Open-Meteo before calculating the Panchanga.
 For a plain `Kota`, it prefers Kota, Rajasthan, India when multiple matches are returned.
 For better accuracy with smaller places, include district/state/country.
+
+
+## Tithi mapping fix
+
+The Sankalpa Sanskrit tithi mapping is zero-based to match the Panchanga library's `tithi` index. This prevents Navami from being rendered as Ashtami, etc.
