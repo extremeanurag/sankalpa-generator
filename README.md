@@ -56,17 +56,4 @@ For better accuracy with smaller places, include district/state/country.
 
 The Sankalpa Sanskrit tithi mapping is zero-based to match the Panchanga library's `tithi` index. This prevents Navami from being rendered as Ashtami, etc.
 
-
-## Added options
-
-Deities:
-- Batuka Bhairava
-- Krishna
-- Rama
-- Narasimha
-
-Rituals:
-- Tarpanam
-- Marjanam
-
 These options are included in the Sanskrit ritual mapping used by the generator.
