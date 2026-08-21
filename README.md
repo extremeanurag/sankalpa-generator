@@ -36,3 +36,17 @@ For an arbitrary location, the app can request the iPhone's current coordinates.
 The JavaScript Panchanga library documents Purnimanta support and says its scalar day-level Tithi/Nakshatra/Masa fields follow the sunrise convention. It also reports validation against Drik Panchang. The app therefore uses the library's sunrise-day values rather than scraping Drik Panchang HTML.
 
 For ritual use, you should still compare an unfamiliar location/date against your preferred Panchanga source before relying on it.
+
+
+## Arbitrary places
+
+You can type any city/place, for example:
+- Kota
+- Kota, Rajasthan
+- Jaipur, Rajasthan
+- Tarapith, West Bengal
+- Varanasi, Uttar Pradesh
+
+The app geocodes the typed place using Open-Meteo before calculating the Panchanga.
+For a plain `Kota`, it prefers Kota, Rajasthan, India when multiple matches are returned.
+For better accuracy with smaller places, include district/state/country.

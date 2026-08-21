@@ -65,7 +65,7 @@ footer{font-size:12px;color:#807786;text-align:center;margin-top:18px}
 <input id="place" value="Kadugodi, Bengaluru" autocomplete="off">
 <div class="info">
 Default: <b>Kadugodi, Bengaluru</b> → includes <b>मम गृहे</b>.<br>
-If you change the place → <b>मम गृहे</b> is omitted.
+If you change the place → <b>मम गृहे</b> is omitted. You can enter any city/place, e.g. Kota, Rajasthan.
 </div>
 
 <button id="generate">Generate Sankalpa</button>
@@ -199,9 +199,39 @@ function pakshaText(p){return p==="Shukla"?"शुक्लपक्षे":"क
 
 async function getCoordinates(info, place){
  if(info.lat!==null) return info;
- if(!navigator.geolocation) throw new Error("This place is not in the built-in list. Please use a built-in place or allow location access.");
- const pos=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:10000}));
- return {...info,lat:pos.coords.latitude,lon:pos.coords.longitude,elev:pos.coords.altitude||0};
+
+ // Geocode any typed place using Open-Meteo's free geocoding endpoint.
+ // Example: Kota, Kota, Rajasthan, Jaipur, Tarapith, etc.
+ const url = "https://geocoding-api.open-meteo.com/v1/search?name="
+   + encodeURIComponent(place)
+   + "&count=10&language=en&format=json";
+
+ const response = await fetch(url);
+ if(!response.ok) throw new Error("Place lookup failed. Check your internet connection.");
+ const data = await response.json();
+
+ if(!data.results || !data.results.length)
+   throw new Error("Could not find the place: " + place);
+
+ // Prefer India when several places have the same name.
+ let results = data.results.slice();
+ const india = results.filter(r => (r.country_code || "").toUpperCase() === "IN");
+ if(india.length) results = india;
+
+ // Prefer Kota, Rajasthan for a plain "Kota".
+ if(/^kota$/i.test(place.trim())){
+   const rajasthan = results.filter(r => (r.admin1 || "").toLowerCase().includes("rajasthan"));
+   if(rajasthan.length) results = rajasthan;
+ }
+
+ const r = results[0];
+ return {
+   ...info,
+   lat: r.latitude,
+   lon: r.longitude,
+   elev: r.elevation || 0,
+   geocodedName: [r.name, r.admin1, r.country].filter(Boolean).join(", ")
+ };
 }
 
 function buildPanchang(info){
