@@ -1,4 +1,3 @@
-<!-- Start -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -51,6 +50,10 @@ footer{font-size:12px;color:#807786;text-align:center;margin-top:18px}
 <option value="shiva">Shiva</option>
 <option value="vishnu">Vishnu</option>
 <option value="hanuman">Hanuman</option>
+<option value="batukabhairava">Batuka Bhairava</option>
+<option value="krishna">Krishna</option>
+<option value="rama">Rama</option>
+<option value="narasimha">Narasimha</option>
 </select>
 
 <label for="ritual">Ritual</label>
@@ -60,6 +63,8 @@ footer{font-size:12px;color:#807786;text-align:center;margin-top:18px}
 <option value="homa">Homa</option>
 <option value="japa">Japa</option>
 <option value="anusthana">Anushthana</option>
+<option value="tarpanam">Tarpanam</option>
+<option value="marjanam">Marjanam</option>
 </select>
 
 <label for="place">Place</label>
@@ -109,31 +114,41 @@ const DEITY={
  ganesha:["श्रीगणेश","श्रीगणेशस्य"],
  shiva:["श्रीशिव","श्रीशिवस्य"],
  vishnu:["श्रीविष्णु","श्रीविष्णोः"],
- hanuman:["श्रीहनुमान्","श्रीहनुमतः"]
+ hanuman:["श्रीहनुमान्","श्रीहनुमतः"],
+ batukabhairava:["श्रीबटुकभैरव","श्रीभगवतो बटुकभैरवस्य"],
+ krishna:["श्रीकृष्ण","श्रीभगवतः कृष्णस्य"],
+ rama:["श्रीराम","श्रीरामस्य"],
+ narasimha:["श्रीनृसिंह","श्रीभगवतो नृसिंहस्य"]
 };
 
 const RITUAL={
  puja:{
   tara:"श्रीतारापूजनं",bhairava:"श्रीभैरवपूजनं",kalabhairava:"श्रीकालभैरवपूजनं",
   durga:"श्रीदुर्गापूजनं",kali:"श्रीकालीपूजनं",skanda:"श्रीस्कन्दपूजनं",
-  ganesha:"श्रीगणेशपूजनं",shiva:"श्रीशिवपूजनं",vishnu:"श्रीविष्णुपूजनं",hanuman:"श्रीहनुमत्पूजनं"
+  ganesha:"श्रीगणेशपूजनं",shiva:"श्रीशिवपूजनं",vishnu:"श्रीविष्णुपूजनं",hanuman:"श्रीहनुमत्पूजनं",
+  batukabhairava:"श्रीबटुकभैरवपूजनं",krishna:"श्रीकृष्णपूजनं",rama:"श्रीरामपूजनं",narasimha:"श्रीनृसिंहपूजनं"
  },
  nimbu_bali:Object.fromEntries(Object.keys(DEITY).map(k=>[k,"निम्बफलबलिप्रदानं"])),
  homa:{
   tara:"श्रीताराहोमं",bhairava:"श्रीभैरवहोमं",kalabhairava:"श्रीकालभैरवहोमं",
   durga:"श्रीदुर्गाहोमं",kali:"श्रीकालीहोमं",skanda:"श्रीस्कन्दहोमं",
-  ganesha:"श्रीगणेशहोमं",shiva:"श्रीशिवहोमं",vishnu:"श्रीविष्णुहोमं",hanuman:"श्रीहनुमद्धोमं"
+  ganesha:"श्रीगणेशहोमं",shiva:"श्रीशिवहोमं",vishnu:"श्रीविष्णुहोमं",hanuman:"श्रीहनुमद्धोमं",
+  batukabhairava:"श्रीबटुकभैरवहोमं",krishna:"श्रीकृष्णहोमं",rama:"श्रीरामहोमं",narasimha:"श्रीनृसिंहहोमं"
  },
  japa:{
   tara:"श्रीतारामन्त्रजपं",bhairava:"श्रीभैरवमन्त्रजपं",kalabhairava:"श्रीकालभैरवमन्त्रजपं",
   durga:"श्रीदुर्गामन्त्रजपं",kali:"श्रीकालीमन्त्रजपं",skanda:"श्रीस्कन्दमन्त्रजपं",
-  ganesha:"श्रीगणेशमन्त्रजपं",shiva:"श्रीशिवमन्त्रजपं",vishnu:"श्रीविष्णुमन्त्रजपं",hanuman:"श्रीहनुमन्मन्त्रजपं"
+  ganesha:"श्रीगणेशमन्त्रजपं",shiva:"श्रीशिवमन्त्रजपं",vishnu:"श्रीविष्णुमन्त्रजपं",hanuman:"श्रीहनुमन्मन्त्रजपं",
+  batukabhairava:"श्रीबटुकभैरवमन्त्रजपं",krishna:"श्रीकृष्णमन्त्रजपं",rama:"श्रीराममन्त्रजपं",narasimha:"श्रीनृसिंहमन्त्रजपं"
  },
  anusthana:{
   tara:"श्रीतारामन्त्रानुष्ठानं",bhairava:"श्रीभैरवमन्त्रानुष्ठानं",kalabhairava:"श्रीकालभैरवमन्त्रानुष्ठानं",
   durga:"श्रीदुर्गामन्त्रानुष्ठानं",kali:"श्रीकालीमन्त्रानुष्ठानं",skanda:"श्रीस्कन्दमन्त्रानुष्ठानं",
-  ganesha:"श्रीगणेशमन्त्रानुष्ठानं",shiva:"श्रीशिवमन्त्रानुष्ठानं",vishnu:"श्रीविष्णुमन्त्रानुष्ठानं",hanuman:"श्रीहनुमन्मन्त्रानुष्ठानं"
- }
+  ganesha:"श्रीगणेशमन्त्रानुष्ठानं",shiva:"श्रीशिवमन्त्रानुष्ठानं",vishnu:"श्रीविष्णुमन्त्रानुष्ठानं",hanuman:"श्रीहनुमन्मन्त्रानुष्ठानं",
+  batukabhairava:"श्रीबटुकभैरवमन्त्रानुष्ठानं",krishna:"श्रीकृष्णमन्त्रानुष्ठानं",rama:"श्रीराममन्त्रानुष्ठानं",narasimha:"श्रीनृसिंहमन्त्रानुष्ठानं"
+ },
+ tarpanam:Object.fromEntries(Object.keys(DEITY).map(k=>[k, DEITY[k][0]+"तर्पणं"])),
+ marjanam:Object.fromEntries(Object.keys(DEITY).map(k=>[k, DEITY[k][0]+"मार्जनं"]))
 };
 
 const WEEK=["रविवासरे","सोमवासरे","मङ्गलवासरे","बुधवासरे","गुरुवासरे","शुक्रवासरे","शनिवासरे"];
