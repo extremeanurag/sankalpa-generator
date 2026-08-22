@@ -1,4 +1,3 @@
-<!-- Start-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -260,8 +259,26 @@ function buildPanchang(info){
  return getPanchangam(date,observer,{timezoneOffset:330,calendarType:"purnimanta"});
 }
 
+function currentPanchangElements(p){
+ const now = new Date();
+ const findCurrent = (arr) => (arr || []).find(x =>
+   x.startTime && x.endTime && x.startTime.getTime() <= now.getTime() && now.getTime() < x.endTime.getTime()
+ );
+ return {
+   now,
+   tithi: findCurrent(p.tithis),
+   nakshatra: findCurrent(p.nakshatras)
+ };
+}
+
+function currentElementName(element, names, fallback){
+ if(!element) return fallback;
+ return element.name || names[element.index] || fallback;
+}
+
 function buildSankalpa(p,place){
  const now=localDateForIST();
+ const current=currentPanchangElements(p);
  const deity=document.getElementById("deity").value;
  const ritual=document.getElementById("ritual").value;
  const dg=DEITY[deity][1];
@@ -272,8 +289,8 @@ function buildSankalpa(p,place){
 
  const masa=masaText(p.masa);
  const paksha=pakshaText(p.paksha);
- const tithi=tithiText(p.tithi);
- const nak=nakText(p.nakshatra);
+ const tithi = current.tithi ? tithiText(current.tithi.index) : tithiText(p.tithi);
+ const nak = current.nakshatra ? nakText(current.nakshatra.index) : nakText(p.nakshatra);
 
  return `ममोपात्तसमस्तदुरितक्षयद्वारा श्रीपरमेश्वरप्रीत्यर्थं, अद्य ग्रेगोरियन-पञ्चाङ्गे ${dateDDMMYYYY(now)} दिनाङ्के, ${WEEK[now.getDay()]}, ${masa} ${paksha} ${tithi} ${nak}, गर्गगोत्रसम्भवः अहम् अनुरागमोहन्ती, ${loc}, ${dg} अनुग्रह-प्रीत्यर्थं ${process} करिष्ये।
 
@@ -282,14 +299,18 @@ function buildSankalpa(p,place){
 
 function showPanchang(p){
  const box=document.getElementById("panchangBox");
+ const current=currentPanchangElements(p);
+ const tithi=current.tithi;
+ const nak=current.nakshatra;
  const items=[
+  ["Current IST",fmtTime(current.now)],
   ["Calendar","Pūrṇimānta"],
   ["Māsa",masaText(p.masa)],
   ["Paksha",p.paksha==="Shukla"?"Shukla":"Krishna"],
-  ["Tithi",tithiNames[p.tithi]||p.tithi],
-  ["Tithi ends",fmtTime(p.tithiEndTime)],
-  ["Nakshatra",nakshatraNames[p.nakshatra]||p.nakshatra],
-  ["Nakshatra ends",fmtTime(p.nakshatraEndTime)],
+  ["Tithi",currentElementName(tithi,tithiNames,tithiNames[p.tithi]||p.tithi)],
+  ["Tithi ends",fmtTime(tithi?.endTime || p.tithiEndTime)],
+  ["Nakshatra",currentElementName(nak,nakshatraNames,nakshatraNames[p.nakshatra]||p.nakshatra)],
+  ["Nakshatra ends",fmtTime(nak?.endTime || p.nakshatraEndTime)],
   ["Sunrise",fmtTime(p.sunrise)],
   ["Sunset",fmtTime(p.sunset)]
  ];
