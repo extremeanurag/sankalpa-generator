@@ -240,38 +240,72 @@ function normalizeMasaName(m){
  if (raw !== "" && Number.isInteger(numeric) && numeric >= 0 && numeric < MASA_ORDER.length) return MASA_ORDER[numeric];
  return raw;
 }
-function resolvedTithiIndex(p, currentTithi){
- // Some library versions number the 15 tithis within a paksha (0–14),
- // while others number the full lunar month (0–29). On a day whose sunrise
- // tithi is Purnima (index 14), an active Pratipada (index 0) means Purnima
- // has ended and Krishna Paksha has begun. Resolve that boundary explicitly.
- let idx = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
- const name = String(currentTithi?.name ?? '').toLowerCase();
- const sunriseIdx = Number.isInteger(p?.tithi) ? p.tithi : null;
- const isPratipada = idx === 0 || idx === 15 || name.includes('pratipada') || name.includes('प्रतिपदा');
- if (isPratipada && sunriseIdx === 14) return 15;
- if (idx !== null) return idx;
- if (name.includes('krishna') || name.includes('कृष्ण')) return 15;
- return sunriseIdx;
-}
 function masaText(m, p, currentTithi){
- let n=normalizeMasaName(m);
- // Advance the Purnimanta month specifically at the Purnima -> Krishna
- // Pratipada boundary, not throughout the rest of Krishna Paksha.
- const idx = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
- const name = String(currentTithi?.name ?? '').toLowerCase();
- const sunriseIdx = Number.isInteger(p?.tithi) ? p.tithi : null;
- const isPratipada = idx === 0 || idx === 15 || name.includes('pratipada') || name.includes('प्रतिपदा');
- const crossedPurnima = sunriseIdx === 14 && isPratipada;
- if (crossedPurnima && MASA_ORDER.includes(n)) {
-   n = MASA_ORDER[(MASA_ORDER.indexOf(n)+1)%MASA_ORDER.length];
- }
- return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
+  let n=normalizeMasaName(m);
+
+  // Determine the ACTIVE tithi robustly. The library's daily p.tithi can
+  // describe the sunrise tithi, while currentTithi is selected by its
+  // startTime/endTime interval for the actual current instant.
+  let currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
+
+  if (currentIndex === null) {
+    const rawName = String(currentTithi?.name ?? "").toLowerCase();
+    const tithiNameMap = [
+      ["pratipada",0],["pratipatha",0],["प्रतिपदा",0],
+      ["dvitiya",1],["द्वितीया",1],
+      ["tritiya",2],["तृतीया",2],
+      ["chaturthi",3],["चतुर्थी",3],
+      ["panchami",4],["पञ्चमी",4],["पंचमी",4],
+      ["shashthi",5],["षष्ठी",5],
+      ["saptami",6],["सप्तमी",6],
+      ["ashtami",7],["अष्टमी",7],
+      ["navami",8],["नवमी",8],
+      ["dashami",9],["दशमी",9],
+      ["ekadashi",10],["एकादशी",10],
+      ["dwadashi",11],["द्वादशी",11],
+      ["trayodashi",12],["त्रयोदशी",12],
+      ["chaturdashi",13],["चतुर्दशी",13],
+      ["purnima",14],["पूर्णिमा",14],["पूर्णिमा",14],
+      ["amavasya",29],["अमावस्या",29]
+    ];
+    const matched = tithiNameMap.find(([name]) => rawName.includes(name));
+    if (matched) {
+      const isKrishna = rawName.includes("krishna") || rawName.includes("कृष्ण");
+      currentIndex = isKrishna ? (matched[1] === 14 ? 14 : matched[1] + 15) : matched[1];
+      if (matched[1] === 29) currentIndex = 29;
+    }
+  }
+
+  if (currentIndex === null && Number.isInteger(p?.tithi)) currentIndex=p.tithi;
+  const currentIsKrishna = currentIndex !== null && currentIndex >= 15 && currentIndex <= 29;
+
+  if (currentIsKrishna && MASA_ORDER.includes(n)) {
+    // Explicit Purnimanta boundary rule: after Ashwin Purnima ends and
+    // Krishna Paksha begins, the month is Kartika. Do not rely on the
+    // sunrise tithi for this Ashwin -> Kartika transition.
+    if (n === "Ashwin") {
+      n = "Kartika";
+    } else {
+      // For other months, advance only when the daily/sunrise label is
+      // still Shukla while the active interval has already entered Krishna.
+      const sunriseIndex = Number.isInteger(p?.tithi) ? p.tithi : null;
+      if (sunriseIndex !== null && sunriseIndex < 15) {
+        n = MASA_ORDER[(MASA_ORDER.indexOf(n)+1)%MASA_ORDER.length];
+      }
+    }
+  }
+
+  return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
 }
 function pakshaText(p, currentTithi){
- const currentIndex = resolvedTithiIndex(p, currentTithi);
- const currentPaksha = currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
- return currentPaksha === "Shukla" ? "शुक्लपक्षे" : "कृष्णपक्षे";
+  let currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
+  if (currentIndex === null) {
+    const name = String(currentTithi?.name ?? "").toLowerCase();
+    if (name.includes("krishna") || name.includes("कृष्ण")) currentIndex = 15;
+    else if (name.includes("shukla") || name.includes("शुक्ल")) currentIndex = 0;
+  }
+  const currentPaksha = currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
+  return currentPaksha === "Shukla" ? "शुक्लपक्षे" : "कृष्णपक्षे";
 }
 
 async function getCoordinates(info, place){
