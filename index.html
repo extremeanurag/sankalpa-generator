@@ -240,41 +240,37 @@ function normalizeMasaName(m){
  if (raw !== "" && Number.isInteger(numeric) && numeric >= 0 && numeric < MASA_ORDER.length) return MASA_ORDER[numeric];
  return raw;
 }
-function currentTithiIndex(p, currentTithi){
- // Prefer the active interval's explicit index. Some library builds omit it,
- // so next use its position in the complete tithi interval array.
- if (Number.isInteger(currentTithi?.index)) return currentTithi.index;
- if (currentTithi && Array.isArray(p?.tithis)) {
-   const position = p.tithis.indexOf(currentTithi);
-   if (position >= 0) return position;
- }
- // Some builds expose a paksha/name rather than a numeric index.
- const label = String(currentTithi?.name ?? currentTithi?.tithi ?? "").toLowerCase();
- if (label.includes("krishna") || label.includes("कृष्ण")) {
-   const ordinal = label.match(/(pratipada|pratipad|प्रतिपदा|द्वितीया|द्वितीया|द्वितीया)/);
-   if (ordinal) return 15;
-   return 15;
- }
- if (label.includes("purnima") || label.includes("पूर्णिमा")) return 14;
- if (label.includes("amavasya") || label.includes("अमावस्या")) return 29;
- // Last fallback: daily tithi only. This is sunrise-based and must not override
- // a current interval that was found but lacked an index.
- if (!currentTithi && Number.isInteger(p?.tithi)) return p.tithi;
- return null;
+function resolvedTithiIndex(p, currentTithi){
+ // Some library versions number the 15 tithis within a paksha (0–14),
+ // while others number the full lunar month (0–29). On a day whose sunrise
+ // tithi is Purnima (index 14), an active Pratipada (index 0) means Purnima
+ // has ended and Krishna Paksha has begun. Resolve that boundary explicitly.
+ let idx = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
+ const name = String(currentTithi?.name ?? '').toLowerCase();
+ const sunriseIdx = Number.isInteger(p?.tithi) ? p.tithi : null;
+ const isPratipada = idx === 0 || idx === 15 || name.includes('pratipada') || name.includes('प्रतिपदा');
+ if (isPratipada && sunriseIdx === 14) return 15;
+ if (idx !== null) return idx;
+ if (name.includes('krishna') || name.includes('कृष्ण')) return 15;
+ return sunriseIdx;
 }
 function masaText(m, p, currentTithi){
  let n=normalizeMasaName(m);
- const currentIndex=currentTithiIndex(p,currentTithi);
- const currentIsKrishna=currentIndex !== null && currentIndex >= 15;
- // Purnimanta: the month counter advances at the end of Purnima, i.e. when
- // the active tithi is Krishna Pratipada or later. Advance only when the
- // library's underlying month is still Ashwin; do not advance Kartika twice.
- if(currentIsKrishna && n==="Ashwin") n="Kartika";
+ // Advance the Purnimanta month specifically at the Purnima -> Krishna
+ // Pratipada boundary, not throughout the rest of Krishna Paksha.
+ const idx = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
+ const name = String(currentTithi?.name ?? '').toLowerCase();
+ const sunriseIdx = Number.isInteger(p?.tithi) ? p.tithi : null;
+ const isPratipada = idx === 0 || idx === 15 || name.includes('pratipada') || name.includes('प्रतिपदा');
+ const crossedPurnima = sunriseIdx === 14 && isPratipada;
+ if (crossedPurnima && MASA_ORDER.includes(n)) {
+   n = MASA_ORDER[(MASA_ORDER.indexOf(n)+1)%MASA_ORDER.length];
+ }
  return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
 }
 function pakshaText(p, currentTithi){
- const currentIndex=currentTithiIndex(p,currentTithi);
- const currentPaksha=currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
+ const currentIndex = resolvedTithiIndex(p, currentTithi);
+ const currentPaksha = currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
  return currentPaksha === "Shukla" ? "शुक्लपक्षे" : "कृष्णपक्षे";
 }
 
@@ -325,11 +321,9 @@ function buildPanchang(info){
 
 function currentPanchangElements(p){
  const now = new Date();
- const toMillis = v => v instanceof Date ? v.getTime() : (v == null ? NaN : new Date(v).getTime());
- const findCurrent = (arr) => (arr || []).find(x => {
-   const start=toMillis(x.startTime), end=toMillis(x.endTime);
-   return Number.isFinite(start) && Number.isFinite(end) && start <= now.getTime() && now.getTime() < end;
- });
+ const findCurrent = (arr) => (arr || []).find(x =>
+   x.startTime && x.endTime && x.startTime.getTime() <= now.getTime() && now.getTime() < x.endTime.getTime()
+ );
  return {
    now,
    tithi: findCurrent(p.tithis),
