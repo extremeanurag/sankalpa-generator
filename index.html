@@ -215,13 +215,25 @@ const MASA_ORDER = [
  "Ashwin","Kartika","Margashirsha","Pausha","Magha","Phalguna"
 ];
 function normalizeMasaName(m){
- const raw=String(m?.name || m || "").trim();
+ // The library's masa may be returned as a name-bearing object, a string,
+ // or a numeric index depending on version. Normalize all known forms.
+ const value = (m && typeof m === "object") ? (m.name ?? m.index ?? m.value ?? "") : m;
+ const raw=String(value ?? "").trim();
  const aliases={
   "Ashvina":"Ashwin","Ashvini":"Ashwin","Asvina":"Ashwin","Asvayuja":"Ashwin",
   "Kartika":"Kartika","Kartik":"Kartika","Shravana":"Shravana",
-  "Bhadrapada":"Bhadrapada","Bhadra":"Bhadrapada","Margasirsha":"Margashirsha"
+  "Bhadrapada":"Bhadrapada","Bhadra":"Bhadrapada","Margasirsha":"Margashirsha",
+  "ashwin":"Ashwin","kartika":"Kartika","chaitra":"Chaitra","vaishakha":"Vaishakha",
+  "jyeshtha":"Jyeshtha","ashadha":"Ashadha","shravana":"Shravana","bhadrapada":"Bhadrapada",
+  "margashirsha":"Margashirsha","pausha":"Pausha","magha":"Magha","phalguna":"Phalguna"
  };
- return aliases[raw] || raw;
+ if (aliases[raw]) return aliases[raw];
+ // Numeric month indices in this library are zero-based; accept 0..11.
+ const numeric = Number(raw);
+ if (raw !== "" && Number.isInteger(numeric) && numeric >= 0 && numeric < MASA_ORDER.length) {
+   return MASA_ORDER[numeric];
+ }
+ return raw;
 }
 function masaText(m, p, currentTithi){
  let n=normalizeMasaName(m);
