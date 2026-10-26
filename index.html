@@ -215,87 +215,75 @@ const MASA_ORDER = [
  "Ashwin","Kartika","Margashirsha","Pausha","Magha","Phalguna"
 ];
 function normalizeMasaName(m){
- // Normalize month values from different library builds: English names,
- // Sanskrit names, and numeric indices. Keep this normalization separate
- // from the Purnimanta transition rule below.
- const value = (m && typeof m === "object") ? (m.name ?? m.index ?? m.value ?? "") : m;
- const raw=String(value ?? "").trim();
- const aliases={
-  "Ashvina":"Ashwin","Ashvini":"Ashwin","Asvina":"Ashwin","Asvayuja":"Ashwin",
-  "Ashwin":"Ashwin","ashwin":"Ashwin","आश्विन":"Ashwin","आश्विनमास":"Ashwin","आश्विनमासे":"Ashwin",
-  "Kartika":"Kartika","Kartik":"Kartika","kartika":"Kartika","कार्तिक":"Kartika","कार्तिकमास":"Kartika","कार्तिकमासे":"Kartika",
-  "Shravana":"Shravana","shravana":"Shravana","श्रावण":"Shravana",
-  "Bhadrapada":"Bhadrapada","bhadrapada":"Bhadrapada","भाद्रपद":"Bhadrapada",
-  "Margasirsha":"Margashirsha","Margashirsha":"Margashirsha","margashirsha":"Margashirsha","मार्गशीर्ष":"Margashirsha",
-  "Chaitra":"Chaitra","chaitra":"Chaitra","चैत्र":"Chaitra",
-  "Vaishakha":"Vaishakha","vaishakha":"Vaishakha","वैशाख":"Vaishakha",
-  "Jyeshtha":"Jyeshtha","jyeshtha":"Jyeshtha","ज्येष्ठ":"Jyeshtha",
-  "Ashadha":"Ashadha","ashadha":"Ashadha","आषाढ़":"Ashadha","आषाढ":"Ashadha",
-  "Pausha":"Pausha","pausha":"Pausha","पौष":"Pausha",
-  "Magha":"Magha","magha":"Magha","माघ":"Magha",
-  "Phalguna":"Phalguna","phalguna":"Phalguna","फाल्गुन":"Phalguna"
- };
- if (aliases[raw]) return aliases[raw];
- const numeric = Number(raw);
- if (raw !== "" && Number.isInteger(numeric) && numeric >= 0 && numeric < MASA_ORDER.length) return MASA_ORDER[numeric];
- return raw;
+  const value = (m && typeof m === "object") ? (m.name ?? m.index ?? m.value ?? "") : m;
+  const raw = String(value ?? "").trim();
+  const clean = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[\s_-]+/g,"");
+  const aliases = {
+    "chaitra":"Chaitra","चैत्र":"Chaitra",
+    "vaishakha":"Vaishakha","vaisakha":"Vaishakha","वैशाख":"Vaishakha",
+    "jyeshtha":"Jyeshtha","jyestha":"Jyeshtha","ज्येष्ठ":"Jyeshtha",
+    "ashadha":"Ashadha","asadha":"Ashadha","आषाढ":"Ashadha","आषाढ़":"Ashadha",
+    "shravana":"Shravana","sravana":"Shravana","श्रावण":"Shravana",
+    "bhadrapada":"Bhadrapada","bhadrapad":"Bhadrapada","भाद्रपद":"Bhadrapada",
+    "ashwin":"Ashwin","ashwina":"Ashwin","ashvina":"Ashwin","ashvina":"Ashwin",
+    "asvina":"Ashwin","asvayuja":"Ashwin","ashvayuja":"Ashwin","आश्विन":"Ashwin",
+    "kartika":"Kartika","kartik":"Kartika","कार्तिक":"Kartika",
+    "margashirsha":"Margashirsha","margashirsa":"Margashirsha","margasirsha":"Margashirsha","मार्गशीर्ष":"Margashirsha",
+    "pausha":"Pausha","paus":"Pausha","पौष":"Pausha",
+    "magha":"Magha","माघ":"Magha",
+    "phalguna":"Phalguna","phalgun":"Phalguna","फाल्गुन":"Phalguna"
+  };
+  if (aliases[clean]) return aliases[clean];
+  const numeric = Number(raw);
+  if (raw !== "" && Number.isInteger(numeric) && numeric >= 0 && numeric < MASA_ORDER.length) {
+    return MASA_ORDER[numeric];
+  }
+  return raw;
 }
 function masaText(m, p, currentTithi){
-  let n = normalizeMasaName(m);
-
-  // Purnimanta rule for EVERY month:
-  // if the active tithi has crossed into Krishna Paksha after sunrise,
-  // but the library's daily/sunrise month label still corresponds to the
-  // previous Shukla/Purnima side, advance exactly one month.
-  const getTithiIndex = (element) => {
-    if (Number.isInteger(element?.index)) return element.index;
-    const name = String(element?.name ?? "").toLowerCase();
-    const names = [
-      ["pratipada",0,"प्रतिपदा"],["dvitiya",1,"द्वितीया"],
-      ["tritiya",2,"तृतीया"],["chaturthi",3,"चतुर्थी"],
-      ["panchami",4,"पञ्चमी"],["shashthi",5,"षष्ठी"],
-      ["saptami",6,"सप्तमी"],["ashtami",7,"अष्टमी"],
-      ["navami",8,"नवमी"],["dashami",9,"दशमी"],
-      ["ekadashi",10,"एकादशी"],["dwadashi",11,"द्वादशी"],
-      ["trayodashi",12,"त्रयोदशी"],["chaturdashi",13,"चतुर्दशी"],
-      ["purnima",14,"पूर्णिमा"],["amavasya",29,"अमावस्या"]
-    ];
-    for (const [en, index, sa] of names) {
-      if (name.includes(en) || name.includes(sa)) {
-        const krishna = name.includes("krishna") || name.includes("कृष्ण");
-        if (index === 29) return 29;
-        return krishna && index !== 14 ? index + 15 : index;
-      }
-    }
-    if (name.includes("krishna") || name.includes("कृष्ण")) return 15;
-    if (name.includes("shukla") || name.includes("शुक्ल")) return 0;
-    return null;
-  };
-
-  const activeIndex = getTithiIndex(currentTithi);
-  const sunriseIndex = Number.isInteger(p?.tithi) ? p.tithi : null;
-  const activeIsKrishna = activeIndex !== null
-    ? activeIndex >= 15
-    : (currentTithi ? /krishna|कृष्ण/i.test(String(currentTithi.name || "")) : false);
-
-  // Increment for all months only when the current interval is Krishna
-  // but the sunrise scalar still describes a Shukla tithi. This avoids
-  // advancing again on later Krishna days when the library already labels
-  // the month correctly.
-  const sunriseStillShukla = sunriseIndex !== null && sunriseIndex < 15;
-  if (activeIsKrishna && sunriseStillShukla && MASA_ORDER.includes(n)) {
-    n = MASA_ORDER[(MASA_ORDER.indexOf(n) + 1) % MASA_ORDER.length];
+  let month = normalizeMasaName(m);
+  const monthIndex = MASA_ORDER.indexOf(month);
+  if (monthIndex < 0) {
+    return MASA[month] || (String(month).includes("Adhika") ? String(month)+"मासे" : String(month)+"मासे");
   }
 
-  return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
+  const currentIndex = tithiIndexFromElement(currentTithi);
+  const sunriseIndex = Number.isInteger(p?.tithi) ? p.tithi : null;
+
+  // Generic Purnimanta rule: when the actual active tithi is Krishna Paksha
+  // but the daily scalar still reports a Shukla sunrise tithi, advance one month.
+  // This works for every month in MASA_ORDER, not only Ashwin -> Kartika.
+  if (currentIndex !== null && currentIndex >= 15 && currentIndex <= 29 &&
+      sunriseIndex !== null && sunriseIndex >= 0 && sunriseIndex < 15) {
+    month = MASA_ORDER[(monthIndex + 1) % MASA_ORDER.length];
+  }
+  return MASA[month] || (String(month).includes("Adhika") ? String(month)+"मासे" : String(month)+"मासे");
+}
+
+function tithiIndexFromElement(element){
+  if (Number.isInteger(element?.index)) return element.index;
+  const raw = String(element?.name ?? "").toLowerCase();
+  const names = [
+    ["pratipada",0,"प्रतिपदा"],["dvitiya",1,"द्वितीया"],["tritiya",2,"तृतीया"],
+    ["chaturthi",3,"चतुर्थी"],["panchami",4,"पञ्चमी"],["shashthi",5,"षष्ठी"],
+    ["saptami",6,"सप्तमी"],["ashtami",7,"अष्टमी"],["navami",8,"नवमी"],
+    ["dashami",9,"दशमी"],["ekadashi",10,"एकादशी"],["dwadashi",11,"द्वादशी"],
+    ["trayodashi",12,"त्रयोदशी"],["chaturdashi",13,"चतुर्दशी"],
+    ["purnima",14,"पूर्णिमा"],["amavasya",29,"अमावस्या"]
+  ];
+  for (const [en, idx, sa] of names) {
+    if (raw.includes(en) || raw.includes(sa)) {
+      if (idx === 29) return 29;
+      const krishna = raw.includes("krishna") || raw.includes("कृष्ण");
+      return krishna && idx < 14 ? idx + 15 : idx;
+    }
+  }
+  if (raw.includes("krishna") || raw.includes("कृष्ण")) return 15;
+  if (raw.includes("shukla") || raw.includes("शुक्ल")) return 0;
+  return null;
 }
 function pakshaText(p, currentTithi){
-  let currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
-  if (currentIndex === null) {
-    const name = String(currentTithi?.name ?? "").toLowerCase();
-    if (name.includes("krishna") || name.includes("कृष्ण")) currentIndex = 15;
-    else if (name.includes("shukla") || name.includes("शुक्ल")) currentIndex = 0;
-  }
+  const currentIndex = tithiIndexFromElement(currentTithi);
   const currentPaksha = currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
   return currentPaksha === "Shukla" ? "शुक्लपक्षे" : "कृष्णपक्षे";
 }
@@ -346,27 +334,15 @@ function buildPanchang(info){
 }
 
 function currentPanchangElements(p){
-  const now = new Date();
-  const toMillis = (value) => {
-    if (value instanceof Date) return value.getTime();
-    if (typeof value === "number") return value;
-    if (typeof value === "string") {
-      const parsed = Date.parse(value);
-      return Number.isFinite(parsed) ? parsed : NaN;
-    }
-    return NaN;
-  };
-  const findCurrent = (arr) => (arr || []).find(x => {
-    const start = toMillis(x.startTime ?? x.start ?? x.from);
-    const end = toMillis(x.endTime ?? x.end ?? x.to);
-    return Number.isFinite(start) && Number.isFinite(end) &&
-      start <= now.getTime() && now.getTime() < end;
-  });
-  return {
-    now,
-    tithi: findCurrent(p.tithis),
-    nakshatra: findCurrent(p.nakshatras)
-  };
+ const now = new Date();
+ const findCurrent = (arr) => (arr || []).find(x =>
+   x.startTime && x.endTime && x.startTime.getTime() <= now.getTime() && now.getTime() < x.endTime.getTime()
+ );
+ return {
+   now,
+   tithi: findCurrent(p.tithis),
+   nakshatra: findCurrent(p.nakshatras)
+ };
 }
 
 function currentElementName(element, names, fallback){
