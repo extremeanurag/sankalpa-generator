@@ -240,25 +240,41 @@ function normalizeMasaName(m){
  if (raw !== "" && Number.isInteger(numeric) && numeric >= 0 && numeric < MASA_ORDER.length) return MASA_ORDER[numeric];
  return raw;
 }
+function currentTithiIndex(p, currentTithi){
+ // Prefer the active interval's explicit index. Some library builds omit it,
+ // so next use its position in the complete tithi interval array.
+ if (Number.isInteger(currentTithi?.index)) return currentTithi.index;
+ if (currentTithi && Array.isArray(p?.tithis)) {
+   const position = p.tithis.indexOf(currentTithi);
+   if (position >= 0) return position;
+ }
+ // Some builds expose a paksha/name rather than a numeric index.
+ const label = String(currentTithi?.name ?? currentTithi?.tithi ?? "").toLowerCase();
+ if (label.includes("krishna") || label.includes("कृष्ण")) {
+   const ordinal = label.match(/(pratipada|pratipad|प्रतिपदा|द्वितीया|द्वितीया|द्वितीया)/);
+   if (ordinal) return 15;
+   return 15;
+ }
+ if (label.includes("purnima") || label.includes("पूर्णिमा")) return 14;
+ if (label.includes("amavasya") || label.includes("अमावस्या")) return 29;
+ // Last fallback: daily tithi only. This is sunrise-based and must not override
+ // a current interval that was found but lacked an index.
+ if (!currentTithi && Number.isInteger(p?.tithi)) return p.tithi;
+ return null;
+}
 function masaText(m, p, currentTithi){
  let n=normalizeMasaName(m);
- // Purnimanta rule: once Purnima ends, Krishna Paksha belongs to the NEXT
- // month. Thus Ashwin Purnima -> Kartika Krishna Pratipada. The current
- // tithi transition is authoritative; the scalar p.masa may still be the
- // sunrise label. Handle either a numeric tithi index or a named tithi.
- let currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
- if (currentIndex === null && typeof currentTithi?.name === "string") {
-   const nm=currentTithi.name.toLowerCase();
-   if (nm.includes("krishna") || nm.includes("कृष्ण")) currentIndex=15;
- }
- if (currentIndex === null && Number.isInteger(p?.tithi)) currentIndex=p.tithi;
- const currentIsKrishna = currentIndex !== null && currentIndex >= 15;
- if (currentIsKrishna && MASA_ORDER.includes(n)) n = MASA_ORDER[(MASA_ORDER.indexOf(n)+1)%MASA_ORDER.length];
+ const currentIndex=currentTithiIndex(p,currentTithi);
+ const currentIsKrishna=currentIndex !== null && currentIndex >= 15;
+ // Purnimanta: the month counter advances at the end of Purnima, i.e. when
+ // the active tithi is Krishna Pratipada or later. Advance only when the
+ // library's underlying month is still Ashwin; do not advance Kartika twice.
+ if(currentIsKrishna && n==="Ashwin") n="Kartika";
  return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
 }
 function pakshaText(p, currentTithi){
- const currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
- const currentPaksha = currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
+ const currentIndex=currentTithiIndex(p,currentTithi);
+ const currentPaksha=currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
  return currentPaksha === "Shukla" ? "शुक्लपक्षे" : "कृष्णपक्षे";
 }
 
@@ -309,9 +325,11 @@ function buildPanchang(info){
 
 function currentPanchangElements(p){
  const now = new Date();
- const findCurrent = (arr) => (arr || []).find(x =>
-   x.startTime && x.endTime && x.startTime.getTime() <= now.getTime() && now.getTime() < x.endTime.getTime()
- );
+ const toMillis = v => v instanceof Date ? v.getTime() : (v == null ? NaN : new Date(v).getTime());
+ const findCurrent = (arr) => (arr || []).find(x => {
+   const start=toMillis(x.startTime), end=toMillis(x.endTime);
+   return Number.isFinite(start) && Number.isFinite(end) && start <= now.getTime() && now.getTime() < end;
+ });
  return {
    now,
    tithi: findCurrent(p.tithis),
