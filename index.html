@@ -225,15 +225,18 @@ function normalizeMasaName(m){
 }
 function masaText(m, p, currentTithi){
  let n=normalizeMasaName(m);
- // In Purnimanta, Krishna Paksha after the full moon belongs to the next
- // lunar month. The library's scalar masa/paksha fields describe sunrise;
- // if the current tithi has crossed from sunrise Shukla into Krishna, advance
- // the displayed month exactly once. On a day whose sunrise is already Krishna,
- // the library's sunrise month is already the correct month.
+ // Purnimanta month naming: the Krishna Paksha after a month's Purnima
+ // belongs to the following month. The library's scalar tithi/masa fields
+ // refer to sunrise, while currentTithi is the element at the current instant.
+ // Compare tithi indices instead of relying on the library's paksha string,
+ // whose representation may vary. Tithi indices 0-14 are Shukla; 15-29 Krishna.
  const currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : p?.tithi;
- const currentIsKrishna = Number.isInteger(currentIndex) ? currentIndex >= 15 : p?.paksha === "Krishna";
- const sunrisePaksha = p?.paksha;
- if (sunrisePaksha === "Shukla" && currentIsKrishna && MASA_ORDER.includes(n)) {
+ const sunriseTithiIndex = p?.tithi;
+ const currentIsKrishna = Number.isInteger(currentIndex) ? currentIndex >= 15 : false;
+ const sunriseWasShukla = Number.isInteger(sunriseTithiIndex)
+   ? sunriseTithiIndex < 15
+   : String(p?.paksha?.name || p?.paksha || "").toLowerCase().includes("shukla");
+ if (sunriseWasShukla && currentIsKrishna && MASA_ORDER.includes(n)) {
    n = MASA_ORDER[(MASA_ORDER.indexOf(n) + 1) % MASA_ORDER.length];
  }
  return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
