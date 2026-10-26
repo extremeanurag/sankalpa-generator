@@ -210,11 +210,39 @@ function tithiText(n){
 function nakText(n){
  return NAK[n] || ("नक्षत्रे ("+n+")");
 }
-function masaText(m){
- const n=m?.name || m;
- return MASA[n] || (String(n).includes("Adhika")?String(n)+"मासे":String(n)+"मासे");
+const MASA_ORDER = [
+ "Chaitra","Vaishakha","Jyeshtha","Ashadha","Shravana","Bhadrapada",
+ "Ashwin","Kartika","Margashirsha","Pausha","Magha","Phalguna"
+];
+function normalizeMasaName(m){
+ const raw=String(m?.name || m || "").trim();
+ const aliases={
+  "Ashvina":"Ashwin","Ashvini":"Ashwin","Asvina":"Ashwin","Asvayuja":"Ashwin",
+  "Kartika":"Kartika","Kartik":"Kartika","Shravana":"Shravana",
+  "Bhadrapada":"Bhadrapada","Bhadra":"Bhadrapada","Margasirsha":"Margashirsha"
+ };
+ return aliases[raw] || raw;
 }
-function pakshaText(p){return p==="Shukla"?"शुक्लपक्षे":"कृष्णपक्षे";}
+function masaText(m, p, currentTithi){
+ let n=normalizeMasaName(m);
+ // In Purnimanta, Krishna Paksha after the full moon belongs to the next
+ // lunar month. The library's scalar masa/paksha fields describe sunrise;
+ // if the current tithi has crossed from sunrise Shukla into Krishna, advance
+ // the displayed month exactly once. On a day whose sunrise is already Krishna,
+ // the library's sunrise month is already the correct month.
+ const currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : p?.tithi;
+ const currentIsKrishna = Number.isInteger(currentIndex) ? currentIndex >= 15 : p?.paksha === "Krishna";
+ const sunrisePaksha = p?.paksha;
+ if (sunrisePaksha === "Shukla" && currentIsKrishna && MASA_ORDER.includes(n)) {
+   n = MASA_ORDER[(MASA_ORDER.indexOf(n) + 1) % MASA_ORDER.length];
+ }
+ return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
+}
+function pakshaText(p, currentTithi){
+ const currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
+ const currentPaksha = currentIndex !== null ? (currentIndex >= 15 ? "Krishna" : "Shukla") : p;
+ return currentPaksha === "Shukla" ? "शुक्लपक्षे" : "कृष्णपक्षे";
+}
 
 async function getCoordinates(info, place){
  if(info.lat!==null) return info;
@@ -254,7 +282,9 @@ async function getCoordinates(info, place){
 }
 
 function buildPanchang(info){
- const date=localDateForIST();
+ // Pass the actual instant so transition arrays can be matched against the
+ // current moment. The library's scalar daily fields remain sunrise-based.
+ const date=new Date();
  const observer=new Observer(info.lat,info.lon,info.elev);
  return getPanchangam(date,observer,{timezoneOffset:330,calendarType:"purnimanta"});
 }
@@ -287,9 +317,10 @@ function buildSankalpa(p,place){
  let loc=placeInfo(place).text;
  if(key(place)==="kadugodi, bengaluru") loc+=" मम गृहे";
 
- const masa=masaText(p.masa);
- const paksha=pakshaText(p.paksha);
- const tithi = current.tithi ? tithiText(current.tithi.index) : tithiText(p.tithi);
+ const tithiElement = current.tithi;
+ const masa=masaText(p.masa, p, tithiElement);
+ const paksha=pakshaText(p.paksha, tithiElement);
+ const tithi = tithiElement ? tithiText(tithiElement.index) : tithiText(p.tithi);
  const nak = current.nakshatra ? nakText(current.nakshatra.index) : nakText(p.nakshatra);
 
  return `ममोपात्तसमस्तदुरितक्षयद्वारा श्रीपरमेश्वरप्रीत्यर्थं, अद्य ग्रेगोरियन-पञ्चाङ्गे ${dateDDMMYYYY(now)} दिनाङ्के, ${WEEK[now.getDay()]}, ${masa} ${paksha} ${tithi} ${nak}, गर्गगोत्रसम्भवः अहम् अनुरागमोहन्ती, ${loc}, ${dg} अनुग्रह-प्रीत्यर्थं ${process} करिष्ये।
@@ -305,8 +336,8 @@ function showPanchang(p){
  const items=[
   ["Current IST",fmtTime(current.now)],
   ["Calendar","Pūrṇimānta"],
-  ["Māsa",masaText(p.masa)],
-  ["Paksha",p.paksha==="Shukla"?"Shukla":"Krishna"],
+  ["Māsa",masaText(p.masa, p, tithi)],
+  ["Paksha",pakshaText(p.paksha, tithi)==="शुक्लपक्षे"?"Shukla":"Krishna"],
   ["Tithi",currentElementName(tithi,tithiNames,tithiNames[p.tithi]||p.tithi)],
   ["Tithi ends",fmtTime(tithi?.endTime || p.tithiEndTime)],
   ["Nakshatra",currentElementName(nak,nakshatraNames,nakshatraNames[p.nakshatra]||p.nakshatra)],
