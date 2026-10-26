@@ -241,58 +241,50 @@ function normalizeMasaName(m){
  return raw;
 }
 function masaText(m, p, currentTithi){
-  let n=normalizeMasaName(m);
+  let n = normalizeMasaName(m);
 
-  // Determine the ACTIVE tithi robustly. The library's daily p.tithi can
-  // describe the sunrise tithi, while currentTithi is selected by its
-  // startTime/endTime interval for the actual current instant.
-  let currentIndex = Number.isInteger(currentTithi?.index) ? currentTithi.index : null;
-
-  if (currentIndex === null) {
-    const rawName = String(currentTithi?.name ?? "").toLowerCase();
-    const tithiNameMap = [
-      ["pratipada",0],["pratipatha",0],["प्रतिपदा",0],
-      ["dvitiya",1],["द्वितीया",1],
-      ["tritiya",2],["तृतीया",2],
-      ["chaturthi",3],["चतुर्थी",3],
-      ["panchami",4],["पञ्चमी",4],["पंचमी",4],
-      ["shashthi",5],["षष्ठी",5],
-      ["saptami",6],["सप्तमी",6],
-      ["ashtami",7],["अष्टमी",7],
-      ["navami",8],["नवमी",8],
-      ["dashami",9],["दशमी",9],
-      ["ekadashi",10],["एकादशी",10],
-      ["dwadashi",11],["द्वादशी",11],
-      ["trayodashi",12],["त्रयोदशी",12],
-      ["chaturdashi",13],["चतुर्दशी",13],
-      ["purnima",14],["पूर्णिमा",14],["पूर्णिमा",14],
-      ["amavasya",29],["अमावस्या",29]
+  // Purnimanta rule for EVERY month:
+  // if the active tithi has crossed into Krishna Paksha after sunrise,
+  // but the library's daily/sunrise month label still corresponds to the
+  // previous Shukla/Purnima side, advance exactly one month.
+  const getTithiIndex = (element) => {
+    if (Number.isInteger(element?.index)) return element.index;
+    const name = String(element?.name ?? "").toLowerCase();
+    const names = [
+      ["pratipada",0,"प्रतिपदा"],["dvitiya",1,"द्वितीया"],
+      ["tritiya",2,"तृतीया"],["chaturthi",3,"चतुर्थी"],
+      ["panchami",4,"पञ्चमी"],["shashthi",5,"षष्ठी"],
+      ["saptami",6,"सप्तमी"],["ashtami",7,"अष्टमी"],
+      ["navami",8,"नवमी"],["dashami",9,"दशमी"],
+      ["ekadashi",10,"एकादशी"],["dwadashi",11,"द्वादशी"],
+      ["trayodashi",12,"त्रयोदशी"],["chaturdashi",13,"चतुर्दशी"],
+      ["purnima",14,"पूर्णिमा"],["amavasya",29,"अमावस्या"]
     ];
-    const matched = tithiNameMap.find(([name]) => rawName.includes(name));
-    if (matched) {
-      const isKrishna = rawName.includes("krishna") || rawName.includes("कृष्ण");
-      currentIndex = isKrishna ? (matched[1] === 14 ? 14 : matched[1] + 15) : matched[1];
-      if (matched[1] === 29) currentIndex = 29;
-    }
-  }
-
-  if (currentIndex === null && Number.isInteger(p?.tithi)) currentIndex=p.tithi;
-  const currentIsKrishna = currentIndex !== null && currentIndex >= 15 && currentIndex <= 29;
-
-  if (currentIsKrishna && MASA_ORDER.includes(n)) {
-    // Explicit Purnimanta boundary rule: after Ashwin Purnima ends and
-    // Krishna Paksha begins, the month is Kartika. Do not rely on the
-    // sunrise tithi for this Ashwin -> Kartika transition.
-    if (n === "Ashwin") {
-      n = "Kartika";
-    } else {
-      // For other months, advance only when the daily/sunrise label is
-      // still Shukla while the active interval has already entered Krishna.
-      const sunriseIndex = Number.isInteger(p?.tithi) ? p.tithi : null;
-      if (sunriseIndex !== null && sunriseIndex < 15) {
-        n = MASA_ORDER[(MASA_ORDER.indexOf(n)+1)%MASA_ORDER.length];
+    for (const [en, index, sa] of names) {
+      if (name.includes(en) || name.includes(sa)) {
+        const krishna = name.includes("krishna") || name.includes("कृष्ण");
+        if (index === 29) return 29;
+        return krishna && index !== 14 ? index + 15 : index;
       }
     }
+    if (name.includes("krishna") || name.includes("कृष्ण")) return 15;
+    if (name.includes("shukla") || name.includes("शुक्ल")) return 0;
+    return null;
+  };
+
+  const activeIndex = getTithiIndex(currentTithi);
+  const sunriseIndex = Number.isInteger(p?.tithi) ? p.tithi : null;
+  const activeIsKrishna = activeIndex !== null
+    ? activeIndex >= 15
+    : (currentTithi ? /krishna|कृष्ण/i.test(String(currentTithi.name || "")) : false);
+
+  // Increment for all months only when the current interval is Krishna
+  // but the sunrise scalar still describes a Shukla tithi. This avoids
+  // advancing again on later Krishna days when the library already labels
+  // the month correctly.
+  const sunriseStillShukla = sunriseIndex !== null && sunriseIndex < 15;
+  if (activeIsKrishna && sunriseStillShukla && MASA_ORDER.includes(n)) {
+    n = MASA_ORDER[(MASA_ORDER.indexOf(n) + 1) % MASA_ORDER.length];
   }
 
   return MASA[n] || (String(n).includes("Adhika") ? String(n)+"मासे" : String(n)+"मासे");
@@ -354,15 +346,27 @@ function buildPanchang(info){
 }
 
 function currentPanchangElements(p){
- const now = new Date();
- const findCurrent = (arr) => (arr || []).find(x =>
-   x.startTime && x.endTime && x.startTime.getTime() <= now.getTime() && now.getTime() < x.endTime.getTime()
- );
- return {
-   now,
-   tithi: findCurrent(p.tithis),
-   nakshatra: findCurrent(p.nakshatras)
- };
+  const now = new Date();
+  const toMillis = (value) => {
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    }
+    return NaN;
+  };
+  const findCurrent = (arr) => (arr || []).find(x => {
+    const start = toMillis(x.startTime ?? x.start ?? x.from);
+    const end = toMillis(x.endTime ?? x.end ?? x.to);
+    return Number.isFinite(start) && Number.isFinite(end) &&
+      start <= now.getTime() && now.getTime() < end;
+  });
+  return {
+    now,
+    tithi: findCurrent(p.tithis),
+    nakshatra: findCurrent(p.nakshatras)
+  };
 }
 
 function currentElementName(element, names, fallback){
